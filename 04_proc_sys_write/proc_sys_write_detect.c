@@ -25,15 +25,25 @@ struct opened_file_data_t {
     char pathname[FILE_NAME_LEN];
 };
 
+// таблица для передачи событий из ядра в пользовательское пространство
+// https://github.com/iovisor/bcc/blob/master/docs/reference_guide.md#2-bpf_perf_output
 BPF_PERF_OUTPUT(write_events);
 
+// массив для обхода ограничения bpf в 512 байт на стэк
+// одно из обсуждений с этой "проблемой"
+// https://github.com/iovisor/bcc/issues/2306
 BPF_ARRAY(write_data, struct write_data_t, 1);
 
+// промежуточная таблица для сохранения имени файла между входом и выходом из openat
 BPF_HASH(temp_opened_files, u64, const char *);
+
+// промежуточная таблица для сохранения имени файла между входом и выходом из dup
 BPF_HASH(temp_dup_files, u64, int);
 
+// итоговая таблица сопастовления fd и имени файла
 BPF_HASH(opened_files, u64, struct opened_file_data_t);
 
+// https://man7.org/linux/man-pages/man2/openat.2.html
 int syscall__openat(struct pt_regs *ctx, int dirfd, const char *pathname, int flags, mode_t mode)
 {
     u64 file_id = bpf_get_current_pid_tgid();
@@ -86,6 +96,7 @@ int syscall__openat_ret(struct pt_regs *ctx)
     return 0;
 }
 
+// https://man7.org/linux/man-pages/man2/dup.2.html
 int syscall__dup2(struct pt_regs *ctx, int oldfd, int newfd) {
     // используем id процесса и потока в качестве "идентификатора" файла находящегося в процессе дублирования
     // и сохраняем номер переданного ( старого ) дескриптора для последующего мапинга с полученным при выходе дублированным дескриптором
@@ -169,8 +180,8 @@ int syscall__write(struct pt_regs *ctx, int fd, void *buf, u64 buf_len)
     if (!opened_file) return 0;
 
     int index = 0;
-
     struct write_data_t *data = write_data.lookup(&index);
+    
     if (data == NULL) return 1;
     
     memset(data->filename, 0, FILE_NAME_LEN);

@@ -33,9 +33,14 @@ struct opened_file_data_t {
     char pathname[FILE_NAME_LEN];
 };
 
+// таблица для передачи событий из ядра в пользовательское пространство
+// https://github.com/iovisor/bcc/blob/master/docs/reference_guide.md#2-bpf_perf_output
 BPF_PERF_OUTPUT(ptrace_events);
 BPF_PERF_OUTPUT(pwrite_events);
 
+// массив для обхода ограничения bpf в 512 байт на стэк
+// одно из обсуждений с этой "проблемой"
+// https://github.com/iovisor/bcc/issues/2306
 BPF_ARRAY(pwrite_data, struct pwrite_data_t, 1);
 
 // промежуточная таблица для сохранения имени файла между входом и выходом из openat
@@ -44,13 +49,14 @@ BPF_HASH(temp_opened_files, u64, const char *);
 // итоговая таблица сопастовления fd и имени файла
 BPF_HASH(opened_files, u64, struct opened_file_data_t);
 
-//
+// отслеживаем вызовы openat для "резолва" имен файлов в последующих вызовах ( в частности во write )
+// https://man7.org/linux/man-pages/man2/openat.2.html
 int syscall__openat(struct pt_regs *ctx, int dirfd, const char *pathname, int flags, mode_t mode)
 {
     u64 temp_file_id = bpf_get_current_pid_tgid();
 
     // используем id процесса и группы потока в качестве "идентификатора" файла находящегося в процессе открытия
-    // и сохраняем имя файла для последующего мапинга с полученным при выходе дескриптором
+    // и сохраняем имя файла и полученный при выходе дескриптор для последующего мапинга 
     // далее связка "имя файла" -> номер дескриптора будет использована в других вызовах ( напр. pwrite, write )
     // для получения имени файла, к которому осуществляется обращение
 
@@ -109,7 +115,7 @@ int syscall__close(struct pt_regs *ctx, int fd)
     return 0;
 }
 
-// https://man7.org/linux/man-pages/man2/mount.2.html
+// https://man7.org/linux/man-pages/man2/ptrace.2.html
 int syscall__ptrace(struct pt_regs *ctx,
     u32 request, u32 pid,
     void *addr, void *data)
@@ -136,11 +142,12 @@ int syscall__ptrace(struct pt_regs *ctx,
     return 0;
 }
 
+// https://man7.org/linux/man-pages/man2/pwrite64.2.html
 int syscall__pwrite64(struct pt_regs *ctx, int fd, void *buf, u64 buf_len, u64 offset)
 {   
     int index = 0;
-
     struct pwrite_data_t *data = pwrite_data.lookup(&index);
+
     if (data == NULL) return 1;
 
     memset(data->filename, 0, FILE_NAME_LEN);
@@ -167,6 +174,7 @@ int syscall__pwrite64(struct pt_regs *ctx, int fd, void *buf, u64 buf_len, u64 o
     data->len    = result_len;
     data->offset = offset;
 
+    // выводим данные в userspace
     pwrite_events.perf_submit(ctx, data, sizeof(struct pwrite_data_t));
 
     return 0;

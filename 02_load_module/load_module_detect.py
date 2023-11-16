@@ -1,5 +1,5 @@
 from bcc import BPF
-from util import *
+from util import * # файл находиться в корне репозитория
 
 BPF_FILENAME = "load_module_detect.c"
 
@@ -21,7 +21,7 @@ close_fnname        = bpf.get_syscall_fnname("close")
 
 finit_module_fnname = bpf.get_syscall_fnname("finit_module")
 
-# "прикрепляемся" к вызовам
+# "прикрепляемся" к вызовам указывая имена функций в ядре ответственных за их обработку
 # https://github.com/iovisor/bcc/blob/master/docs/reference_guide.md#events
 bpf.attach_kprobe(event=openat_fname,        fn_name="syscall__openat")
 bpf.attach_kretprobe(event=openat_fname,     fn_name="syscall__openat_ret")
@@ -29,7 +29,7 @@ bpf.attach_kprobe(event=close_fnname,        fn_name="syscall__close")
 
 bpf.attach_kprobe(event=finit_module_fnname, fn_name="syscall__finit_module")
 
-# обработчик событий
+# обработчик поступаемых из ядра событий
 def handle_finit_module(cpu, data, size):
     event = bpf["finit_module_events"].event(data)
 

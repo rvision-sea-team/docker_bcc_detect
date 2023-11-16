@@ -20,8 +20,13 @@ struct mount_data_t {
     char data[MOUNT_DATA_MAX_LEN];
 };
 
+// массив для обхода ограничения bpf в 512 байт на стэк
+// одно из обсуждений с этой "проблемой"
+// https://github.com/iovisor/bcc/issues/2306
 BPF_ARRAY(mount_data, struct mount_data_t, 1);
 
+// таблица для передачи событий из ядра в пользовательское пространство
+// https://github.com/iovisor/bcc/blob/master/docs/reference_guide.md#2-bpf_perf_output
 BPF_PERF_OUTPUT(mount_events);
 
 // https://man7.org/linux/man-pages/man2/mount.2.html

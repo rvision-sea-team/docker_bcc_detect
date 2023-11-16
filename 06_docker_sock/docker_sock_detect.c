@@ -40,13 +40,21 @@ struct connected_unix_socket_data_t {
     char pathname[FILE_NAME_LEN];
 };
 
+// таблицы для передачи событий из ядра в пользовательское пространство
+// https://github.com/iovisor/bcc/blob/master/docs/reference_guide.md#2-bpf_perf_output
 BPF_PERF_OUTPUT(connect_unix_events);
 BPF_PERF_OUTPUT(write_events);
 
+// массивы для обхода ограничения bpf в 512 байт на стэк
+// одно из обсуждений с этой "проблемой"
+// https://github.com/iovisor/bcc/issues/2306
 BPF_ARRAY(write_data, struct write_data_t, 1);
 BPF_ARRAY(connect_data, struct connect_unix_data_t, 1);
 
+// промежуточная таблица для сохранения имени файла между входом и выходом из openat
 BPF_HASH(temp_opened_files, u64, const char *);
+
+// итоговая таблица сопастовления fd и имени файла
 BPF_HASH(opened_files, u64, struct opened_file_data_t);
 
 // https://man7.org/linux/man-pages/man2/connect.2.html
@@ -95,7 +103,8 @@ int syscall__connect(struct pt_regs *ctx, int sockfd, struct sockaddr *saddr, u6
     return 0;
 }
 
-// отслеживаем вызовы openat для "резолва" имен файлов в последующих вызовах ( в частности в write )
+// отслеживаем вызовы openat для "резолва" имен файлов в последующих вызовах ( в частности во write )
+// https://man7.org/linux/man-pages/man2/openat.2.html
 int syscall__openat(struct pt_regs *ctx, int dirfd, const char *pathname, int flags, mode_t mode)
 {
     u64 file_id = bpf_get_current_pid_tgid();
@@ -182,6 +191,7 @@ int syscall__write(struct pt_regs *ctx, int fd, void *buf, u64 buf_len)
     return 0;
 }
 
+// https://man7.org/linux/man-pages/man2/sendto.2.html
 int syscall__sendto(struct pt_regs *ctx, int fd, void *buf, u64 buf_len, int flags, struct sockaddr *dest_addr, int addrlen)
 {
     u64 pid_tgid = bpf_get_current_pid_tgid();

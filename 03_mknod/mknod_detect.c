@@ -18,8 +18,11 @@ struct mknod_data_t {
     int mode;
 };
 
+// таблица для передачи событий из ядра в пользовательское пространство
+// https://github.com/iovisor/bcc/blob/master/docs/reference_guide.md#2-bpf_perf_output
 BPF_PERF_OUTPUT(mknod_events);
 
+// https://man7.org/linux/man-pages/man2/mknod.2.html
 int syscall__mknod(struct pt_regs *ctx, int dirfd, const char *pathname, mode_t mode, dev_t dev)
 {
     struct mknod_data_t mknod_data = {};

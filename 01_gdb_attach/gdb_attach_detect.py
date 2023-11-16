@@ -1,6 +1,7 @@
 from bcc import BPF
-from util import *
+from util import * # находится в корне репозитория
 
+# имя файла с кодом kernel-части
 BPF_FILENAME = "gdb_attach_detect.c"
 
 try:
@@ -21,7 +22,7 @@ close_fnname        = bpf.get_syscall_fnname("close")
 ptrace_fname        = bpf.get_syscall_fnname("ptrace")
 pwrite_fname        = bpf.get_syscall_fnname("pwrite64")
 
-# "прикрепляемся" к вызовам
+# "прикрепляемся" к вызовам указывая имена функций в ядре ответственных за их обработку
 # https://github.com/iovisor/bcc/blob/master/docs/reference_guide.md#events
 bpf.attach_kprobe(event=openat_fname,        fn_name="syscall__openat")
 bpf.attach_kretprobe(event=openat_fname,     fn_name="syscall__openat_ret")
@@ -33,7 +34,7 @@ bpf.attach_kprobe(event=pwrite_fname,        fn_name="syscall__pwrite64")
 # dict для хранения pid'ов приаттаченных процессов и заодно мапинга из pid в путь до файла
 ptraced_pids = {}
 
-# обработчики событий
+# обработчики поступаемых из ядра событий
 def handle_ptrace_event(cpu, data, size):
     global ptraced_pids
 

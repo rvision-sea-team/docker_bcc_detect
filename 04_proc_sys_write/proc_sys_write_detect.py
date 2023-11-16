@@ -1,8 +1,7 @@
 from bcc import BPF
-from util import *
+from util import * # находится в корне репозитория
 
-# define BPF program
-
+# имя файла с кодом kernel-части
 BPF_FILENAME = "proc_sys_write_detect.c"
 
 try:
@@ -23,7 +22,7 @@ close_fnname        = bpf.get_syscall_fnname("close")
 
 write_fnname        = bpf.get_syscall_fnname("write")
 
-# "прикрепляемся" к вызовам
+# "прикрепляемся" к вызовам указывая имена функций в ядре ответственных за их обработку
 # https://github.com/iovisor/bcc/blob/master/docs/reference_guide.md#events
 bpf.attach_kprobe(event=openat_fname,        fn_name="syscall__openat")
 bpf.attach_kretprobe(event=openat_fname,     fn_name="syscall__openat_ret")
@@ -33,7 +32,7 @@ bpf.attach_kprobe(event=close_fnname,        fn_name="syscall__close")
 
 bpf.attach_kprobe(event=write_fnname,        fn_name="syscall__write")
 
-# функция обработчик для событий
+# обработчик поступаемых из ядра событий
 def handle_proc_sys_write_event(cpu, data, size):
     global input_buff
 

@@ -1,8 +1,7 @@
 from bcc import BPF
+from util import * # находится в корне репозитория
 
-from util import *
-
-#
+# имя файла с кодом kernel-части
 BPF_FILENAME = "docker_detect.c"
 
 try:
@@ -25,7 +24,7 @@ write_fnname        = bpf.get_syscall_fnname("write")
 sendto_fnname       = bpf.get_syscall_fnname("sendto")
 
 
-# "прикрепляемся" к вызовам
+# "прикрепляемся" к вызовам указывая имена функций в ядре ответственных за их обработку
 # https://github.com/iovisor/bcc/blob/master/docs/reference_guide.md#events
 bpf.attach_kprobe(event=openat_fname,        fn_name="syscall__openat")
 bpf.attach_kretprobe(event=openat_fname,     fn_name="syscall__openat_ret")
@@ -35,7 +34,7 @@ bpf.attach_kprobe(event=connect_fnname,      fn_name="syscall__connect")
 bpf.attach_kprobe(event=write_fnname,        fn_name="syscall__write")
 bpf.attach_kprobe(event=sendto_fnname,       fn_name="syscall__sendto")
 
-# обработчики событий
+# обработчики поступаемых из ядра событий
 def handle_connect_unix_event(cpu, data, size):
     event = bpf["connect_unix_events"].event(data)
 

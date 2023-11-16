@@ -1,8 +1,7 @@
-from asyncio.proactor_events import _ProactorBaseWritePipeTransport
 from bcc import BPF
-from util import * 
+from util import * # находится в корне репозитория
 
-#
+# имя файла с кодом kernel-части
 BPF_FILENAME = "mount_detect.c"
 
 try:
@@ -20,11 +19,11 @@ bpf = BPF(text=bpf_text, cflags=["-Wno-macro-redefined"])
 # https://github.com/iovisor/bcc/blob/master/docs/reference_guide.md#5-get_syscall_fnname
 mount_fnname        = bpf.get_syscall_fnname("mount")
 
-# "прикрепляемся" к вызовам
+# "прикрепляемся" к вызовам указывая имена функций в ядре ответственных за их обработку
 # https://github.com/iovisor/bcc/blob/master/docs/reference_guide.md#events
 bpf.attach_kprobe(event=mount_fnname,        fn_name="syscall__mount")
 
-# обработчик событий
+# обработчик поступаемых из ядра событий
 def handle_mount_event(cpu, data, size):
     event = bpf["mount_events"].event(data)
     

@@ -1,9 +1,9 @@
 from bcc import BPF
-from util import * 
+from util import * # находится в корне репозитория
 
 import stat
 
-#
+# имя файла с кодом kernel-части
 BPF_FILENAME = "mknod_detect.c"
 
 try:
@@ -22,11 +22,11 @@ bpf = BPF(text=bpf_text, cflags=["-Wno-macro-redefined"])
 mknod_fnname        = bpf.get_syscall_fnname("mknodat")
 
 
-# "прикрепляемся" к вызовам
+# "прикрепляемся" к вызовам указывая имена функций в ядре ответственных за их обработку
 # https://github.com/iovisor/bcc/blob/master/docs/reference_guide.md#events
 bpf.attach_kprobe(event=mknod_fnname,        fn_name="syscall__mknod")
 
-# обработчик событий
+# обработчик поступаемых из ядра событий
 def handle_mknod_event(cpu, data, size):
     event = bpf["mknod_events"].event(data)
 

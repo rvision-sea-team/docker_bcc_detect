@@ -18,6 +18,8 @@ struct opened_file_data_t {
     char pathname[FILE_NAME_LEN];
 };
 
+// таблица для передачи событий из ядра в пользовательское пространство
+// https://github.com/iovisor/bcc/blob/master/docs/reference_guide.md#2-bpf_perf_output
 BPF_PERF_OUTPUT(finit_module_events);
 
 // промежуточная таблица для сохранения имени файла между входом и выходом из openat
@@ -26,7 +28,8 @@ BPF_HASH(temp_opened_files, u64, const char *);
 // итоговая таблица сопастовления fd и имени файла
 BPF_HASH(opened_files, u64, struct opened_file_data_t);
 
-
+// отслеживаем вызовы openat для "резолва" имен файлов в последующих вызовах ( в частности во write )
+// https://man7.org/linux/man-pages/man2/openat.2.html
 int syscall__openat(struct pt_regs *ctx, int dirfd, const char *pathname, int flags, mode_t mode)
 {
     u64 temp_file_id = bpf_get_current_pid_tgid();
@@ -91,6 +94,7 @@ int syscall__close(struct pt_regs *ctx, int fd)
     return 0;
 }
 
+// https://man7.org/linux/man-pages/man2/finit_module.2.html
 int syscall__finit_module(struct pt_regs *ctx, int fd, const char *param_values, int flags){
     struct finit_module_data_t finit_module_data = {};
 
